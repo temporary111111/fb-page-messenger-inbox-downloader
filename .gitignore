@@ -1,0 +1,11 @@
+.env
+data/
+exports/
+demo-data/
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
