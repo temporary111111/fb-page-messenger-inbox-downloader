@@ -1,0 +1,232 @@
+<div id="inbox-desktop-preview" aria-label="Inbox Archive desktop app preview">
+  <div class="ia-preview-label"><span>DESIGN PREVIEW</span><span>Sample data · controls are simulated</span></div>
+  <section class="ia-window" aria-label="Inbox Archive application window">
+    <header class="ia-titlebar">
+      <div class="ia-title"><span class="ia-app-icon"><i data-lucide="archive" aria-hidden="true"></i></span><span>Inbox Archive</span></div>
+      <div class="ia-window-actions">
+        <button type="button" data-action="minimize" aria-label="Preview minimizing the app"><i data-lucide="minus" aria-hidden="true"></i></button>
+        <button type="button" data-action="close" aria-label="Preview closing the app"><i data-lucide="x" aria-hidden="true"></i></button>
+      </div>
+    </header>
+
+    <div class="ia-main" data-view="main">
+      <div class="ia-page-header"><div><h2>Overview</h2><span class="ia-muted ia-small">Your Facebook Page archive</span></div><button class="ia-button ia-settings-button" type="button" data-action="settings"><i data-lucide="settings-2" aria-hidden="true"></i>Settings</button></div>
+
+      <section class="ia-sync" aria-label="Current archive status">
+        <span class="ia-status-icon"><i data-lucide="check" aria-hidden="true"></i></span>
+        <div class="ia-sync-copy"><h3 data-status>Up to date</h3><span class="ia-muted" data-status-detail>Last synced today, 2:28 AM</span></div>
+        <span class="ia-live-label" data-live-label><span class="ia-dot"></span>Auto-sync on</span>
+      </section>
+
+      <div class="ia-counts" aria-label="Saved archive counts">
+        <div><span class="ia-muted ia-small">Conversations</span><strong>1</strong></div>
+        <div><span class="ia-muted ia-small">Messages</span><strong>12</strong></div>
+        <div><span class="ia-muted ia-small">Files</span><strong>0</strong></div>
+      </div>
+
+      <section class="ia-connections" aria-label="Connections">
+        <div class="ia-connection"><span><i data-lucide="message-circle" aria-hidden="true"></i>Facebook Page</span><span class="ia-connected">Connected</span></div>
+        <div class="ia-connection"><span><i data-lucide="radio-tower" aria-hidden="true"></i>Webhook tunnel</span><span class="ia-connected" data-tunnel-status>Connected</span></div>
+        <div class="ia-callback-row"><button type="button" class="ia-text-button" data-action="callback">Callback URL<i data-lucide="chevron-down" aria-hidden="true"></i></button><span class="ia-muted ia-small" data-check-label>Checks every 5 minutes</span></div>
+        <div class="ia-callback" hidden>
+          <div class="ia-url">https://sample-tunnel.trycloudflare.com/webhook</div>
+          <button type="button" class="ia-button" data-action="copy">Copy URL</button>
+          <span class="ia-muted ia-small">If this address changes, update the callback in Meta.</span>
+        </div>
+      </section>
+
+      <div class="ia-main-actions"><button type="button" class="ia-button ia-primary" data-action="export"><i data-lucide="download" aria-hidden="true"></i>Export archive</button><button type="button" class="ia-button" data-action="toggle"><i data-lucide="square" aria-hidden="true"></i><span data-toggle-label>Stop sync</span></button></div>
+      <div class="ia-feedback" role="status" aria-live="polite"></div>
+      <details class="ia-activity"><summary>Recent activity</summary><div class="ia-activity-line"><span>2:28 AM</span><span>Sync finished · 12 messages saved</span></div><div class="ia-activity-line"><span>2:27 AM</span><span>New message received</span></div></details>
+    </div>
+
+    <div class="ia-main ia-settings" data-view="settings" hidden>
+      <div class="ia-page-header"><div><h2>Settings</h2><span class="ia-muted ia-small">Connection and archive preferences</span></div><button type="button" class="ia-button" data-action="back"><i data-lucide="arrow-left" aria-hidden="true"></i>Back</button></div>
+      <form class="ia-form">
+        <fieldset><legend>Facebook Page</legend>
+          <label class="ia-field">Page ID<input name="pageId" type="text" inputmode="numeric" value="123456789012345" autocomplete="off"></label>
+          <label class="ia-field">Page access token<div class="ia-secret"><input name="pageToken" type="password" value="sample-page-token" autocomplete="off" spellcheck="false"><button class="ia-eye" type="button" data-action="reveal-token" aria-label="Show sample Page access token"><i data-lucide="eye" aria-hidden="true"></i></button></div></label>
+          <label class="ia-field">App secret<div class="ia-secret"><input name="appSecret" type="password" value="sample-app-secret" autocomplete="off" spellcheck="false"><button class="ia-eye" type="button" data-action="reveal-secret" aria-label="Show sample app secret"><i data-lucide="eye" aria-hidden="true"></i></button></div></label>
+          <div class="ia-test-row"><button class="ia-button" type="button" data-action="test"><i data-lucide="plug" aria-hidden="true"></i>Test connection</button><span class="ia-muted ia-small" data-test-result role="status"></span></div>
+        </fieldset>
+        <fieldset><legend>Archive</legend>
+          <label class="ia-field">Save location<div class="ia-location"><input name="location" type="text" value="C:\Inbox Archive\data" autocomplete="off"><button type="button" class="ia-button" data-action="browse">Browse</button></div></label>
+          <label class="ia-field ia-interval">Check for new messages<select name="interval"><option value="1">Every minute</option><option value="5" selected>Every 5 minutes</option><option value="15">Every 15 minutes</option></select></label>
+        </fieldset>
+        <details class="ia-advanced"><summary>Advanced settings</summary><div class="ia-advanced-fields"><label class="ia-field">Webhook verify token<div class="ia-secret"><input type="password" value="sample-verification-token" autocomplete="off"><button class="ia-eye" type="button" data-action="reveal-verify" aria-label="Show sample webhook verify token"><i data-lucide="eye" aria-hidden="true"></i></button></div></label><div class="ia-form-grid"><label class="ia-field">Full history check<select><option>Every 24 hours</option><option>Every 48 hours</option></select></label><label class="ia-field">Maximum file size<select><option>100 MB</option><option>250 MB</option></select></label></div></div></details>
+        <div class="ia-settings-footer"><button type="submit" class="ia-button ia-primary">Save settings</button><button type="button" class="ia-button" data-action="cancel">Cancel</button><span class="ia-muted ia-small">Stored on this PC</span></div>
+        <div class="ia-settings-feedback" role="status" aria-live="polite"></div>
+      </form>
+    </div>
+
+    <div class="ia-main ia-sleep-view" data-view="minimized" hidden><span class="ia-status-icon"><i data-lucide="minus" aria-hidden="true"></i></span><h3>App minimized</h3><span class="ia-muted" data-minimized-detail>Sync continues in the background.</span><button type="button" class="ia-button" data-action="restore">Restore window</button></div>
+    <div class="ia-main ia-sleep-view" data-view="closed" hidden><span class="ia-closed-icon"><i data-lucide="power" aria-hidden="true"></i></span><h3>App closed</h3><span class="ia-muted">Sync and the app's tunnel have stopped.</span><button type="button" class="ia-button ia-primary" data-action="reopen">Reopen preview</button></div>
+
+    <footer class="ia-footer"><span><i data-lucide="hard-drive" aria-hidden="true"></i>Saved on this PC</span><span>Close window to stop</span></footer>
+  </section>
+</div>
+
+<style>
+  #inbox-desktop-preview{--ia-bg:light-dark(#ffffff,#202226);--ia-chrome:light-dark(#f7f8fa,#25272c);--ia-text:light-dark(#20252d,#eceef2);--ia-muted:light-dark(#626975,#b2b8c3);--ia-line:light-dark(#e5e8ed,#383d46);--ia-soft:light-dark(#f5f7fa,#272c34);--ia-blue:light-dark(#255bd5,#93b5ff);--ia-button-blue:light-dark(#285dd5,#3569de);--ia-green:light-dark(#22734c,#91d7b0);--ia-green-soft:light-dark(#eaf5ee,#213c2d);--ia-red:light-dark(#b23c3c,#f5a3a3);font:14px/1.5 'Segoe UI',system-ui,sans-serif;color:var(--ia-text);max-width:780px;margin:0 auto}
+  #inbox-desktop-preview *{box-sizing:border-box}
+  #inbox-desktop-preview [hidden]{display:none!important}
+  #inbox-desktop-preview button,#inbox-desktop-preview input,#inbox-desktop-preview select{font:inherit}
+  #inbox-desktop-preview button{cursor:var(--cursor-interaction,pointer)}
+  #inbox-desktop-preview button:focus-visible,#inbox-desktop-preview input:focus-visible,#inbox-desktop-preview select:focus-visible,#inbox-desktop-preview summary:focus-visible{outline:2px solid var(--ia-blue);outline-offset:3px}
+  #inbox-desktop-preview h2,#inbox-desktop-preview h3,#inbox-desktop-preview p{margin:0}
+  #inbox-desktop-preview h2{font-size:21px;font-weight:500;letter-spacing:-.35px}
+  #inbox-desktop-preview h3{font-size:18px;font-weight:500;letter-spacing:-.2px}
+  #inbox-desktop-preview .ia-preview-label{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:11px;color:var(--ia-muted)}
+  #inbox-desktop-preview .ia-preview-label>span:first-child{letter-spacing:1px;font-weight:500}
+  #inbox-desktop-preview .ia-window{background:var(--ia-bg);border:1px solid var(--ia-line);border-radius:10px;overflow:hidden;box-shadow:0 8px 32px light-dark(#1723380d,#00000030)}
+  #inbox-desktop-preview .ia-titlebar{display:flex;align-items:center;justify-content:space-between;background:var(--ia-chrome);border-bottom:1px solid var(--ia-line);min-height:44px;padding-left:16px}
+  #inbox-desktop-preview .ia-title{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:500}
+  #inbox-desktop-preview .ia-app-icon{display:inline-flex;color:var(--ia-blue)}
+  #inbox-desktop-preview i,#inbox-desktop-preview svg{width:16px;height:16px;flex-shrink:0}
+  #inbox-desktop-preview .ia-window-actions{display:flex;align-self:stretch}
+  #inbox-desktop-preview .ia-window-actions button{display:flex;align-items:center;justify-content:center;border:0;color:var(--ia-muted);background:transparent;width:44px;border-radius:0}
+  #inbox-desktop-preview .ia-window-actions button:hover{background:var(--ia-line)}
+  #inbox-desktop-preview .ia-window-actions button:last-child:hover{background:var(--ia-red);color:#fff}
+  #inbox-desktop-preview .ia-main{padding:28px 32px 20px;min-height:470px}
+  #inbox-desktop-preview .ia-page-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}
+  #inbox-desktop-preview .ia-page-header>div{display:grid;gap:4px}
+  #inbox-desktop-preview .ia-muted{color:var(--ia-muted)}
+  #inbox-desktop-preview .ia-small{font-size:12px}
+  #inbox-desktop-preview .ia-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:7px 13px;border:1px solid var(--ia-line);border-radius:5px;background:var(--ia-bg);color:var(--ia-text);font-weight:500;white-space:nowrap}
+  #inbox-desktop-preview .ia-button:hover{background:var(--ia-soft)}
+  #inbox-desktop-preview .ia-primary{background:var(--ia-button-blue);border-color:var(--ia-button-blue);color:#fff}
+  #inbox-desktop-preview .ia-primary:hover{filter:brightness(.94);background:var(--ia-button-blue)}
+  #inbox-desktop-preview .ia-settings-button{font-size:12px}
+  #inbox-desktop-preview .ia-sync{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+  #inbox-desktop-preview .ia-status-icon,#inbox-desktop-preview .ia-closed-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:var(--ia-green-soft);color:var(--ia-green);flex-shrink:0}
+  #inbox-desktop-preview .ia-sync-copy{display:grid;gap:3px}
+  #inbox-desktop-preview .ia-sync-copy>span{font-size:12px}
+  #inbox-desktop-preview .ia-live-label{display:flex;align-items:center;gap:7px;margin-left:auto;color:var(--ia-green);font-size:12px;white-space:nowrap}
+  #inbox-desktop-preview .ia-dot{height:6px;width:6px;display:inline-block;border-radius:50%;background:currentColor}
+  #inbox-desktop-preview .ia-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:21px 0;border-top:1px solid var(--ia-line);border-bottom:1px solid var(--ia-line);margin-bottom:18px}
+  #inbox-desktop-preview .ia-counts>div{display:grid;gap:7px;padding-left:22px;border-left:1px solid var(--ia-line)}
+  #inbox-desktop-preview .ia-counts>div:first-child{padding-left:0;border-left:0}
+  #inbox-desktop-preview .ia-counts strong{font-size:25px;line-height:1.1;letter-spacing:-.8px;font-weight:500;font-variant-numeric:tabular-nums}
+  #inbox-desktop-preview .ia-connections{display:grid;gap:12px}
+  #inbox-desktop-preview .ia-connection{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:12px}
+  #inbox-desktop-preview .ia-connection>span:first-child{display:flex;align-items:center;gap:10px}
+  #inbox-desktop-preview .ia-connection>span:first-child svg{color:var(--ia-muted)}
+  #inbox-desktop-preview .ia-connected{color:var(--ia-green)}
+  #inbox-desktop-preview .ia-callback-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-left:26px}
+  #inbox-desktop-preview .ia-text-button{display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:transparent;color:var(--ia-blue);font-size:12px}
+  #inbox-desktop-preview .ia-text-button svg{width:13px;height:13px}
+  #inbox-desktop-preview .ia-callback{display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:var(--ia-soft);padding:12px;border-radius:5px}
+  #inbox-desktop-preview .ia-url{font-size:12px;overflow-wrap:anywhere;flex:1;min-width:120px}
+  #inbox-desktop-preview .ia-callback>span{flex-basis:100%}
+  #inbox-desktop-preview .ia-main-actions{display:flex;align-items:center;gap:10px;margin-top:26px}
+  #inbox-desktop-preview .ia-feedback{font-size:12px;color:var(--ia-green)}
+  #inbox-desktop-preview .ia-feedback:not(:empty){padding-top:12px}
+  #inbox-desktop-preview .ia-activity{margin-top:22px;font-size:12px;color:var(--ia-muted)}
+  #inbox-desktop-preview summary{cursor:var(--cursor-interaction,pointer);width:fit-content}
+  #inbox-desktop-preview .ia-activity-line{display:flex;gap:18px;margin-top:10px}
+  #inbox-desktop-preview .ia-footer{display:flex;justify-content:space-between;gap:12px;padding:11px 18px;background:var(--ia-chrome);border-top:1px solid var(--ia-line);font-size:11px;color:var(--ia-muted)}
+  #inbox-desktop-preview .ia-footer>span:first-child{display:flex;align-items:center;gap:6px}
+  #inbox-desktop-preview .ia-footer svg{height:13px;width:13px}
+  #inbox-desktop-preview .ia-form{display:grid;gap:22px}
+  #inbox-desktop-preview fieldset{display:grid;gap:13px;border:0;padding:0;margin:0;min-width:0}
+  #inbox-desktop-preview legend{font-size:12px;font-weight:500;padding:0;margin-bottom:12px}
+  #inbox-desktop-preview .ia-field{display:grid;gap:6px;min-width:0;font-size:12px;color:var(--ia-muted)}
+  #inbox-desktop-preview input,#inbox-desktop-preview select{width:100%;min-width:0;background:var(--ia-bg);color:var(--ia-text);border:1px solid var(--ia-line);border-radius:5px;padding:8px 10px;min-height:36px;font-size:13px}
+  #inbox-desktop-preview .ia-secret,#inbox-desktop-preview .ia-location{display:flex;align-items:center;gap:8px;min-width:0}
+  #inbox-desktop-preview .ia-secret{position:relative}
+  #inbox-desktop-preview .ia-secret input{padding-right:42px}
+  #inbox-desktop-preview .ia-eye{position:absolute;right:4px;top:3px;display:flex;align-items:center;justify-content:center;width:32px;height:30px;border:0;border-radius:3px;background:var(--ia-bg);color:var(--ia-muted)}
+  #inbox-desktop-preview .ia-location input{flex:1}
+  #inbox-desktop-preview .ia-test-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:1px}
+  #inbox-desktop-preview .ia-test-row .ia-button{font-size:12px}
+  #inbox-desktop-preview .ia-interval{max-width:240px}
+  #inbox-desktop-preview .ia-advanced{font-size:12px;color:var(--ia-muted);border-top:1px solid var(--ia-line);padding-top:16px}
+  #inbox-desktop-preview .ia-advanced-fields{display:grid;gap:14px;padding-top:14px}
+  #inbox-desktop-preview .ia-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  #inbox-desktop-preview .ia-settings-footer{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-top:18px;border-top:1px solid var(--ia-line)}
+  #inbox-desktop-preview .ia-settings-footer>span{margin-left:auto}
+  #inbox-desktop-preview .ia-settings-feedback{font-size:12px;color:var(--ia-red)}
+  #inbox-desktop-preview .ia-settings-feedback:empty{display:none}
+  #inbox-desktop-preview .ia-sleep-view{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center}
+  #inbox-desktop-preview .ia-closed-icon{background:var(--ia-soft);color:var(--ia-muted)}
+  @media(max-width:520px){#inbox-desktop-preview .ia-main{padding:22px 18px 18px}#inbox-desktop-preview .ia-sync{flex-wrap:wrap;gap:10px}#inbox-desktop-preview .ia-live-label{margin-left:52px;flex-basis:100%}#inbox-desktop-preview .ia-callback-row{align-items:flex-start;flex-direction:column;gap:8px}#inbox-desktop-preview .ia-main-actions{flex-wrap:wrap}#inbox-desktop-preview .ia-footer{flex-wrap:wrap}#inbox-desktop-preview .ia-counts>div{padding-left:12px}#inbox-desktop-preview .ia-preview-label{flex-wrap:wrap;gap:4px}#inbox-desktop-preview .ia-form-grid{grid-template-columns:1fr}#inbox-desktop-preview .ia-settings-footer>span{margin-left:0;flex-basis:100%}}
+  @media(pointer:coarse){#inbox-desktop-preview .ia-button,#inbox-desktop-preview .ia-text-button{min-height:44px}#inbox-desktop-preview input,#inbox-desktop-preview select{font-size:16px;min-height:44px}#inbox-desktop-preview .ia-eye{height:38px;width:38px}#inbox-desktop-preview summary{padding:10px 0}}
+</style>
+
+<script>
+(() => {
+  const root = document.getElementById('inbox-desktop-preview');
+  const find = selector => root.querySelector(selector);
+  const state = { running: true, view: 'main', interval: '5', density: 'Comfortable' };
+  function show(view) {
+    state.view = view;
+    root.querySelectorAll('[data-view]').forEach(panel => { panel.hidden = panel.dataset.view !== view; });
+  }
+  function feedback(text) { find('.ia-feedback').textContent = text; }
+  function render() {
+    find('[data-status]').textContent = state.running ? 'Up to date' : 'Sync stopped';
+    find('[data-status-detail]').textContent = state.running ? 'Last synced today, 2:28 AM' : 'Your saved archive is still available.';
+    find('[data-live-label]').textContent = state.running ? '● Auto-sync on' : '○ Auto-sync off';
+    find('[data-live-label]').style.color = state.running ? 'var(--ia-green)' : 'var(--ia-muted)';
+    find('[data-toggle-label]').textContent = state.running ? 'Stop sync' : 'Start sync';
+    find('[data-tunnel-status]').textContent = state.running ? 'Connected' : 'Stopped';
+    find('[data-tunnel-status]').style.color = state.running ? 'var(--ia-green)' : 'var(--ia-muted)';
+    find('[data-check-label]').textContent = state.running ? 'Checks every ' + state.interval + (state.interval === '1' ? ' minute' : ' minutes') : 'Automatic checks paused';
+    find('[data-minimized-detail]').textContent = state.running ? 'Sync continues in the background.' : 'Sync remains stopped.';
+    const compact = state.density === 'Compact';
+    root.style.setProperty('--ia-preview-density', compact ? 'compact' : 'comfortable');
+    find('.ia-main[data-view="main"]').style.minHeight = compact ? '430px' : '470px';
+    show(state.view);
+  }
+  root.addEventListener('click', event => {
+    const button = event.target.closest('[data-action]');
+    if (!button || !root.contains(button)) return;
+    switch (button.dataset.action) {
+      case 'settings': find('.ia-settings-feedback').textContent = ''; show('settings'); break;
+      case 'back': case 'cancel': show('main'); break;
+      case 'toggle': state.running = !state.running; feedback(''); render(); break;
+      case 'export': feedback('Preview: archive exported · JSONL, text, database and files.'); break;
+      case 'callback': find('.ia-callback').hidden = !find('.ia-callback').hidden; break;
+      case 'copy': button.textContent = 'Preview: copied'; break;
+      case 'test': {
+        const id = find('[name="pageId"]').value.trim();
+        const valid = /^\d+$/.test(id) && find('[name="pageToken"]').value.trim() && find('[name="appSecret"]').value.trim();
+        find('[data-test-result]').textContent = valid ? 'Preview: connection successful' : 'Enter a numeric Page ID and both credentials.';
+        find('[data-test-result]').style.color = valid ? 'var(--ia-green)' : 'var(--ia-red)';
+        break;
+      }
+      case 'reveal-token': case 'reveal-secret': case 'reveal-verify': {
+        const input = button.parentElement.querySelector('input');
+        input.type = input.type === 'password' ? 'text' : 'password';
+        button.setAttribute('aria-label', (input.type === 'password' ? 'Show' : 'Hide') + ' sample secret');
+        break;
+      }
+      case 'browse': find('.ia-settings-feedback').textContent = 'Preview: the desktop app will open a folder picker.'; break;
+      case 'minimize': show('minimized'); break;
+      case 'restore': show('main'); break;
+      case 'close': state.running = false; state.view = 'closed'; render(); break;
+      case 'reopen': state.running = true; state.view = 'main'; feedback(''); render(); break;
+    }
+  });
+  find('.ia-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (!/^\d+$/.test(find('[name="pageId"]').value.trim())) {
+      find('.ia-settings-feedback').textContent = 'Page ID must contain numbers only.';
+      return;
+    }
+    if (!find('[name="pageToken"]').value.trim() || !find('[name="appSecret"]').value.trim() || !find('[name="location"]').value.trim()) {
+      find('.ia-settings-feedback').textContent = 'Complete the credentials and save location.';
+      return;
+    }
+    state.interval = find('[name="interval"]').value;
+    state.view = 'main';
+    feedback('Preview: settings saved.');
+    render();
+  });
+  render();
+  if (globalThis.Tweak) {
+    const tweak = new Tweak({ container: root, onChange: render });
+    tweak.addSelect(state, 'density', { label: 'Window spacing', options: ['Comfortable', 'Compact'] });
+  }
+})();
+</script>
