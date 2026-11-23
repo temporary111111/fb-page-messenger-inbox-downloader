@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import CancelledError
 from datetime import datetime, timedelta, timezone
 
 from .database import now
@@ -10,11 +11,16 @@ MESSAGE_FIELDS = 'id,created_time,from,to,message,attachments,is_unsupported'
 
 
 class SyncEngine:
-    def __init__(self, db, graph, full_scan_hours=24, after_page=None):
+    def __init__(self, db, graph, full_scan_hours=24, after_page=None, stop=None):
         self.db = db
         self.graph = graph
         self.full_scan_hours = full_scan_hours
         self.after_page = after_page
+        self.stop = stop
+
+    def check_stop(self):
+        if self.stop and self.stop.is_set():
+            raise CancelledError('Sync stopped')
 
     def run(self, full=False):
         self.db.set_meta('last_attempt', now())
@@ -25,11 +31,13 @@ class SyncEngine:
         seen = set()
         try:
             while path:
+                self.check_stop()
                 if path in seen:
                     raise GraphError('Repeated conversation pagination cursor')
                 seen.add(path)
                 page = self.graph.get(path, params)
                 for conversation in page.get('data', []):
+                    self.check_stop()
                     cid = str(conversation['id'])
                     previous = self.db.rows('SELECT * FROM conversations WHERE id=?', (cid,))
                     self.db.save_conversation(conversation)
@@ -67,6 +75,7 @@ class SyncEngine:
         self.db.execute('UPDATE conversations SET complete=0,error=NULL WHERE id=?', (cid,))
         seen = set()
         while path:
+            self.check_stop()
             if path in seen:
                 raise GraphError('Repeated message pagination cursor; run sync --full to reset')
             seen.add(path)
@@ -81,6 +90,7 @@ class SyncEngine:
                     next_attachment = attachments.get('paging', {}).get('next')
                     attachment_seen = set()
                     while next_attachment:
+                        self.check_stop()
                         next_attachment = clean_next(next_attachment)
                         if next_attachment in attachment_seen:
                             raise GraphError('Repeated attachment pagination cursor')
