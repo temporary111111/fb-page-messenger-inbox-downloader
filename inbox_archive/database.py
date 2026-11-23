@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import sqlite3
+from concurrent.futures import CancelledError
 from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -206,10 +207,13 @@ class Database:
                 'sync': {row['key']: row['value'] for row in con.execute(
                     "SELECT * FROM metadata WHERE key NOT IN ('page_id','schema_version')")}}
 
-    def backup(self, target):
+    def backup(self, target, cancel=None):
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.resolve() == self.path:
             raise ValueError('Backup destination must differ from the live database')
+        def progress(status, remaining, total):
+            if cancel and cancel.is_set():
+                raise CancelledError('Export cancelled')
         with self.connect() as source, closing(sqlite3.connect(target)) as destination:
-            source.backup(destination)
+            source.backup(destination, pages=256, progress=progress)
