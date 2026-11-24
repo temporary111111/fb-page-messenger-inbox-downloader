@@ -7,7 +7,7 @@ Application.Run(new MainForm(AppPaths.FromArgs(Environment.GetCommandLineArgs())
 
 sealed record AppPaths(string Root)
 {
-    public string Core => Path.Combine(Root, "InboxArchiveCore.exe");
+    public string Core => Path.Combine(AppContext.BaseDirectory, "InboxArchiveCore.exe");
     public string Env => Path.Combine(Root, ".env");
     public static AppPaths FromArgs(string[] args)
     {
@@ -78,6 +78,10 @@ sealed class MainForm : Form
         {
             worker = Process.Start(Info("serve"));
             if (worker is null) throw new InvalidOperationException();
+            worker.OutputDataReceived += (_, _) => { };
+            worker.ErrorDataReceived += (_, _) => { };
+            worker.BeginOutputReadLine();
+            worker.BeginErrorReadLine();
             worker.EnableRaisingEvents = true;
             worker.Exited += (_, _) => BeginInvoke(RefreshStatus);
             phase.Text = "Starting local sync…";
