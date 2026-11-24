@@ -241,6 +241,36 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(status['incomplete_conversations'], 0)
         self.assertIn('https://graph.facebook.com/v27.0/m1/attachments?after=a1', calls)
 
+    def test_duplicate_idless_attachment_pagination_stops_without_looping(self):
+        template_item = {'generic_template': {'title': 'Order summary'}}
+        message = {
+            'id': 'm1',
+            'created_time': '2026-11-24T10:00:00+0000',
+            'from': {'id': 'p1', 'name': 'Shop'},
+            'to': {'data': [{'id': 'u1', 'name': 'Customer'}]},
+            'message': '',
+            'attachments': {
+                'data': [template_item],
+                'paging': {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a1'},
+            },
+        }
+        class Graph:
+            def get(self, path, params=None):
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1', 'updated_time': '2026-11-24T10:00:00+0000'}]}
+                if path.startswith('c1/messages'):
+                    return {'data': [message]}
+                if path == 'https://graph.facebook.com/v27.0/m1/attachments?after=a1':
+                    return {
+                        'data': [dict(template_item)],
+                        'paging': {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a2'},
+                    }
+                self.fail(f'Unexpected extra attachment page requested: {path}')
+        SyncEngine(self.db, Graph()).run()
+        status = self.db.status()
+        self.assertEqual(status['messages'], 1)
+        self.assertEqual(status['incomplete_conversations'], 0)
+
     def test_raw_api_pagination_credentials_are_not_written_to_disk(self):
         message = self.message()
         message['attachments']['paging'] = {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=x&access_token=PRIVATE_TOKEN&appsecret_proof=PRIVATE_PROOF'}

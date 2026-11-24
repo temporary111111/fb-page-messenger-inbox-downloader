@@ -1,3 +1,4 @@
+import json
 import logging
 from concurrent.futures import CancelledError
 from datetime import datetime, timedelta, timezone
@@ -25,6 +26,12 @@ class SyncEngine:
     def check_stop(self):
         if self.stop and self.stop.is_set():
             raise CancelledError('Sync stopped')
+
+    @staticmethod
+    def _attachment_key(item):
+        if isinstance(item, dict) and item.get('id') is not None:
+            return ('id', str(item['id']))
+        return ('json', json.dumps(item, sort_keys=True, ensure_ascii=False))
 
     @staticmethod
     def message_request(cid, cursor=None):
@@ -111,9 +118,8 @@ class SyncEngine:
                 if isinstance(attachments, dict):
                     next_attachment = attachments.get('paging', {}).get('next')
                     attachment_seen = set()
-                    seen_attachment_ids = {
-                        str(item['id']) for item in attachments.get('data', [])
-                        if isinstance(item, dict) and item.get('id') is not None
+                    seen_attachment_keys = {
+                        self._attachment_key(item) for item in attachments.get('data', [])
                     }
                     while next_attachment:
                         self.check_stop()
@@ -127,16 +133,12 @@ class SyncEngine:
                             break
                         new_items = [
                             item for item in extra_items
-                            if not isinstance(item, dict) or item.get('id') is None
-                            or str(item['id']) not in seen_attachment_ids
+                            if self._attachment_key(item) not in seen_attachment_keys
                         ]
                         if not new_items:
                             # Meta can return the same attachment(s) with a new paging.next cursor indefinitely.
                             break
-                        seen_attachment_ids.update(
-                            str(item['id']) for item in new_items
-                            if isinstance(item, dict) and item.get('id') is not None
-                        )
+                        seen_attachment_keys.update(self._attachment_key(item) for item in new_items)
                         attachments.setdefault('data', []).extend(new_items)
                         next_attachment = extra.get('paging', {}).get('next')
             next_url = page.get('paging', {}).get('next')
