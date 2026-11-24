@@ -8,6 +8,9 @@ from .graph import GraphError, clean_next
 
 log = logging.getLogger(__name__)
 MESSAGE_FIELDS = 'id,created_time,from,to,message,attachments,is_unsupported'
+# Full attachment metadata can make 100-message Graph responses slow or unreliable.
+# Pagination still continues until Meta reports no next cursor.
+MESSAGE_PAGE_SIZE = 25
 
 
 class SyncEngine:
@@ -76,7 +79,7 @@ class SyncEngine:
         cursor = previous.get('cursor') if previous and not previous['complete'] and not full else None
         incremental = bool(previous and previous['complete'] and not full)
         path = cursor or f'{cid}/messages'
-        params = None if cursor else {'fields': MESSAGE_FIELDS, 'limit': 100}
+        params = None if cursor else {'fields': MESSAGE_FIELDS, 'limit': MESSAGE_PAGE_SIZE}
         self.db.execute('UPDATE conversations SET complete=0,error=NULL WHERE id=?', (cid,))
         seen = set()
         while path:

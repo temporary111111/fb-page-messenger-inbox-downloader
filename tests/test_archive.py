@@ -85,6 +85,18 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(self.db.status()['conversations'], 2)
         self.assertEqual(self.db.status()['incomplete_conversations'], 0)
 
+    def test_message_history_uses_reliable_bounded_page_size(self):
+        class Graph:
+            def get(inner, path, params=None):
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1'}]}
+                if path == 'c1/messages':
+                    self.assertEqual(params['limit'], 25)
+                    return {'data': []}
+                raise AssertionError(path)
+
+        SyncEngine(self.db, Graph()).run()
+
     def test_webhook_signature_dedup_and_canonical_merge(self):
         payload = {'object': 'page', 'entry': [{'id': 'page-1', 'messaging': [{
             'sender': {'id': 'customer'}, 'recipient': {'id': 'page-1'},
