@@ -1,5 +1,8 @@
 .env
+.env.*
+!.env.example
 data/
+data-*/
 exports/
 demo-data/
 __pycache__/
@@ -9,3 +12,12 @@ __pycache__/
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
+.superpowers/
+build/
+dist/
+*.spec
+*.log
+.archive-service.pid
+.dotnet-home/
+native-ui/bin/
+native-ui/obj/

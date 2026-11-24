@@ -1,6 +1,39 @@
 # Messenger Inbox Downloader
 
-Local Facebook **Page** inbox archive. Python 3.11+, SQLite, actual attachment files, resumable history import, signed webhooks, automatic catch-up and portable exports. No Python package installation or paid hosting required. This is a command-line app; it has no AI integration or public admin dashboard.
+Local Facebook **Page** inbox archive. Native Windows desktop app and command-line tools, SQLite, actual attachment files, resumable history import, signed webhooks, automatic catch-up and portable exports. No paid hosting or AI integration.
+
+## Continue this project safely
+
+For a new developer or AI assistant, start with [the current handoff](docs/AI-HANDOFF.md), then read the [architecture](docs/ARCHITECTURE.md), [operations runbook](docs/OPERATIONS.md), and repository [working agreement](AGENTS.md). These documents intentionally contain no credentials or customer data.
+
+## Desktop app — everyday use
+
+Double-click **Open Inbox Archive.cmd** in this project folder. It opens the packaged executable when available and passes this directory as the app directory, so your existing `.env`, database and exports are reused. Otherwise it launches the Python source window. No terminals need to remain open.
+
+The direct portable executable is `dist/InboxArchive-<build timestamp>/InboxArchive.exe`. By default it keeps its configuration, `data` and `exports` beside that executable. Copy the **whole build folder**, including `_internal`, to move the program. Never copy only the `.exe`. The root launcher selects the newest build and is the recommended way to use the existing project archive; it does not copy private data into the build.
+
+- **Overview:** latest collection status, message/file counts and Page/tunnel state.
+- **Settings:** edit credentials, storage and interval; Test connection checks Page identity and conversation-read access. Advanced holds webhook/API/port/file-limit settings and an optional cloudflared path.
+- **Start/Stop sync:** controls collection and the tunnel started by this app.
+- **Minimize:** keeps collection running. **Close:** stops owned collection/tunnel processes and exits; it never terminates another terminal app or Cloudflare service.
+- **Export archive:** creates a fresh snapshot. **Open folder** opens the completed export in Explorer.
+- **Callback URL:** copy the temporary HTTPS callback and verify token for Meta. A newly allocated URL is not yet a connected tunnel. Update Meta manually when the URL changes.
+
+The desktop uses saved local configuration rather than terminal environment overrides. Saving restarts a running collector; an explicitly stopped collector stays stopped. Completing first-time setup starts collection. Secret fields are masked; show/copy are explicit actions. `.env` remains local plaintext, so protect the folder appropriately.
+
+The desktop reuses installed `cloudflared`. If it is not found, choose its executable under Advanced settings or install it using the instructions below. Polling still works without a tunnel. If the CLI is already running, close its terminal app first: the GUI will report the archive/port conflict and will not kill it for you.
+
+Run the source directly with `python desktop_entry.py`. For inspection without starting network work, use `python desktop_entry.py --no-autostart`. `--app-dir PATH` selects an explicit portable configuration root.
+
+## Build the Windows executable
+
+```powershell
+.\build-desktop.ps1
+```
+
+The build script creates the ignored `.venv`, installs the pinned build-only PyInstaller requirement and produces a **new timestamped folder** under `dist`. It stages compilation in `build` and never replaces an existing portable installation or its credentials/data/exports. The result includes Python and Tcl/Tk; end users do not need Python. Run this build on Windows with a working Tk installation, outside restricted environments that cannot initialize Tcl. Actual credentials, archives and exports are never bundled. Keep the full output folder together.
+
+Unsigned locally built executables may display a Windows publisher prompt; the app does not change Windows security settings or install a background service.
 
 ## Quick start on Windows
 

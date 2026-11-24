@@ -1,6 +1,7 @@
 import hmac
 import json
 import logging
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -74,4 +75,12 @@ def make_server(db, settings, wake):
             self.reply(200, 'EVENT_RECEIVED')
 
     # Loopback only. Cloudflare publishes this port; archive files are never served.
-    return ThreadingHTTPServer(('127.0.0.1', settings.port), Handler)
+    class ExclusiveServer(ThreadingHTTPServer):
+        allow_reuse_address = False
+
+        def server_bind(self):
+            if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+
+    return ExclusiveServer(('127.0.0.1', settings.port), Handler)

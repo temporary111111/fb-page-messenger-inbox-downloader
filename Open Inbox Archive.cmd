@@ -1,0 +1,18 @@
+@echo off
+setlocal
+cd /d "%~dp0"
+for /f "delims=" %%D in ('dir /b /ad /o-n "%~dp0dist\InboxArchive-*" 2^>nul') do (
+  if exist "%~dp0dist\%%D\InboxArchive.exe" (
+    start "" "%~dp0dist\%%D\InboxArchive.exe" --app-dir "%~dp0."
+    exit /b 0
+  )
+)
+if exist "%~dp0dist\InboxArchive\InboxArchive.exe" (
+  start "" "%~dp0dist\InboxArchive\InboxArchive.exe" --app-dir "%~dp0."
+  exit /b 0
+)
+if exist "%~dp0.venv\Scripts\pythonw.exe" (
+  start "" "%~dp0.venv\Scripts\pythonw.exe" "%~dp0desktop_entry.py" --app-dir "%~dp0."
+  exit /b 0
+)
+start "" pythonw.exe "%~dp0desktop_entry.py" --app-dir "%~dp0."

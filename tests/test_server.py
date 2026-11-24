@@ -4,6 +4,7 @@ import http.client
 import json
 import tempfile
 import threading
+from dataclasses import replace
 import unittest
 from pathlib import Path
 
@@ -62,6 +63,13 @@ class WebhookHTTPTests(unittest.TestCase):
         signature = 'sha256=' + hmac.new(b'secret', body, hashlib.sha256).hexdigest()
         self.assertEqual(self.request('POST', '/webhook', body, {'X-Hub-Signature-256': signature})[0], 400)
         self.assertEqual(self.db.status()['webhook_events'], 0)
+
+    def test_second_archive_cannot_bind_an_existing_webhook_port(self):
+        second = Database(Path(self.temp.name)/'other', '456')
+        settings = Settings(Path(self.temp.name)/'other','456','token','secret','verify',port=self.server.server_port)
+        with self.assertRaises(OSError):
+            duplicate=make_server(second,settings,threading.Event())
+            duplicate.server_close()
 
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ import hashlib
 import mimetypes
 import os
 from http.client import HTTPException
+from concurrent.futures import CancelledError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -27,7 +28,7 @@ def open_media(url):
     return build_opener(MediaRedirect()).open(Request(url, headers={'User-Agent': 'PageInboxArchive/1'}), timeout=45)
 
 
-def download_pending(db, max_mb=100, opener=open_media, message_ids=None):
+def download_pending(db, max_mb=100, opener=open_media, message_ids=None, stop=None):
     folder = db.root / 'attachments'
     folder.mkdir(exist_ok=True)
     # Recover files removed outside the app. Bounded cursor iteration avoids loading the archive in RAM.
@@ -46,6 +47,8 @@ def download_pending(db, max_mb=100, opener=open_media, message_ids=None):
         if not rows:
             break
         for row in rows:
+            if stop and stop.is_set():
+                raise CancelledError('Downloads stopped')
             last_id = row['id']
             temporary = folder / (row['id'] + '.part')
             try:
@@ -62,6 +65,8 @@ def download_pending(db, max_mb=100, opener=open_media, message_ids=None):
                         raise ValueError('Attachment exceeds MAX_ATTACHMENT_MB')
                     with temporary.open('wb') as output:
                         while chunk := response.read(128 * 1024):
+                            if stop and stop.is_set():
+                                raise CancelledError('Downloads stopped')
                             length += len(chunk)
                             if length > max_mb * 1024 * 1024:
                                 raise ValueError('Attachment exceeds MAX_ATTACHMENT_MB')

@@ -2,7 +2,9 @@ import hashlib
 import hmac
 import io
 import json
+import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from urllib.error import URLError
@@ -65,6 +67,37 @@ class ArchiveTests(unittest.TestCase):
         engine.run()
         self.assertEqual(self.db.status()['messages'], 2)
         self.assertEqual(self.db.status()['incomplete_conversations'], 0)
+
+    def test_discovers_every_conversation_page_before_importing_messages(self):
+        class Graph:
+            def get(inner, path, params=None):
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1'}], 'paging': {
+                        'next': 'https://graph.facebook.com/v27.0/page-1/conversations?after=next'}}
+                if 'page-1/conversations?after=next' in path:
+                    return {'data': [{'id': 'c2'}]}
+                if path == 'c1/messages':
+                    self.assertEqual(self.db.status()['conversations'], 2)
+                    return {'data': []}
+                if path == 'c2/messages':
+                    return {'data': []}
+                raise AssertionError(path)
+
+        SyncEngine(self.db, Graph()).run()
+        self.assertEqual(self.db.status()['conversations'], 2)
+        self.assertEqual(self.db.status()['incomplete_conversations'], 0)
+
+    def test_message_history_uses_reliable_bounded_page_size(self):
+        class Graph:
+            def get(inner, path, params=None):
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1'}]}
+                if path == 'c1/messages':
+                    self.assertEqual(params['limit'], 5)
+                    return {'data': []}
+                raise AssertionError(path)
+
+        SyncEngine(self.db, Graph()).run()
 
     def test_webhook_signature_dedup_and_canonical_merge(self):
         payload = {'object': 'page', 'entry': [{'id': 'page-1', 'messaging': [{
@@ -135,6 +168,108 @@ class ArchiveTests(unittest.TestCase):
     def test_graph_error_does_not_expose_credentials(self):
         client = GraphClient('secret-token', 'v27.0', 'app-secret')
         self.assertNotIn('secret-token', repr(client))
+
+    def test_graph_client_allows_short_retryable_request_budget(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', timeout_seconds=10, retries=1,
+                             hard_timeout_seconds=15)
+        self.assertEqual(client.timeout_seconds, 10)
+        self.assertEqual(client.retries, 1)
+        self.assertEqual(client.hard_timeout_seconds, 15)
+
+    def test_windows_curl_keeps_tokens_out_of_command_arguments(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', hard_timeout_seconds=15)
+        client._curl_path = 'curl.exe'
+        captured = {}
+        def fake_run(config):
+            captured['args'] = [client._curl_path, '--config', 'temporary-file']
+            captured['config'] = config
+            return {'data': []}
+        from unittest.mock import patch
+        with patch.object(client, '_run_curl', fake_run):
+            self.assertEqual(client.get('page-1/conversations'), {'data': []})
+        self.assertNotIn('secret-token', ' '.join(captured['args']))
+        self.assertIn('Authorization: Bearer secret-token', captured['config'])
+
+    def test_windows_curl_uses_a_nonblocking_deadline(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', hard_timeout_seconds=0.01)
+        client._curl_path = 'curl.exe'
+        class Process:
+            args = ['curl.exe']
+            returncode = None
+            def poll(self): return None
+            def kill(self): self.killed = True
+        process = Process()
+        from unittest.mock import patch
+        with patch('inbox_archive.graph.subprocess.Popen', return_value=process):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                client._run_curl('url = "https://example.test"')
+        self.assertTrue(process.killed)
+
+    def test_windows_curl_reports_safe_failure_reason(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', retries=1, hard_timeout_seconds=15)
+        client._curl_path = 'curl.exe'
+        from unittest.mock import patch
+        with patch.object(client, '_run_curl', side_effect=OSError('curl exit 28')):
+            with self.assertRaises(GraphError) as raised:
+                client.get('page-1/conversations')
+        self.assertIn('curl exit 28', str(raised.exception))
+        self.assertNotIn('secret-token', str(raised.exception))
+
+    def test_duplicate_attachment_pagination_stops_without_looping(self):
+        message = self.message()
+        message['attachments']['paging'] = {
+            'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a1'
+        }
+        calls = []
+        class Graph:
+            def get(self, path, params=None):
+                calls.append(path)
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1', 'updated_time': '2026-11-24T10:00:00+0000'}]}
+                if path.startswith('c1/messages'):
+                    return {'data': [message]}
+                if path == 'https://graph.facebook.com/v27.0/m1/attachments?after=a1':
+                    return {
+                        'data': [message['attachments']['data'][0]],
+                        'paging': {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a2'},
+                    }
+                self.fail(f'Unexpected extra attachment page requested: {path}')
+        SyncEngine(self.db, Graph()).run()
+        status = self.db.status()
+        self.assertEqual(status['messages'], 1)
+        self.assertEqual(status['attachments'], 1)
+        self.assertEqual(status['incomplete_conversations'], 0)
+        self.assertIn('https://graph.facebook.com/v27.0/m1/attachments?after=a1', calls)
+
+    def test_duplicate_idless_attachment_pagination_stops_without_looping(self):
+        template_item = {'generic_template': {'title': 'Order summary'}}
+        message = {
+            'id': 'm1',
+            'created_time': '2026-11-24T10:00:00+0000',
+            'from': {'id': 'p1', 'name': 'Shop'},
+            'to': {'data': [{'id': 'u1', 'name': 'Customer'}]},
+            'message': '',
+            'attachments': {
+                'data': [template_item],
+                'paging': {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a1'},
+            },
+        }
+        class Graph:
+            def get(self, path, params=None):
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1', 'updated_time': '2026-11-24T10:00:00+0000'}]}
+                if path.startswith('c1/messages'):
+                    return {'data': [message]}
+                if path == 'https://graph.facebook.com/v27.0/m1/attachments?after=a1':
+                    return {
+                        'data': [dict(template_item)],
+                        'paging': {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a2'},
+                    }
+                self.fail(f'Unexpected extra attachment page requested: {path}')
+        SyncEngine(self.db, Graph()).run()
+        status = self.db.status()
+        self.assertEqual(status['messages'], 1)
+        self.assertEqual(status['incomplete_conversations'], 0)
 
     def test_raw_api_pagination_credentials_are_not_written_to_disk(self):
         message = self.message()
@@ -217,7 +352,7 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual(self.db.status()['messages'], 1)
             calls.append('download')
         SyncEngine(self.db, Graph(), after_page=download).run()
-        self.assertLess(calls.index('download'), calls.index('https://graph.facebook.com/v27.0/c1/messages?after=old'))
+        self.assertLess(calls.index('download'), calls.index('c1/messages?after=old'))
 
     def test_attachment_reordering_cannot_reuse_the_wrong_file(self):
         self.db.save_conversation({'id': 'c1'})
