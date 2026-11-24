@@ -18,3 +18,6 @@ dist/
 *.spec
 *.log
 .archive-service.pid
+.dotnet-home/
+native-ui/bin/
+native-ui/obj/
