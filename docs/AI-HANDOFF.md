@@ -20,7 +20,7 @@ Provide a zero-hosting-cost, local Windows archive for one Facebook business Pag
 - Native desktop UI: settings, start/stop, tunnel status, export, portable launcher/build scripts.
 - Conversation discovery now follows every available Page-conversation pagination page **before** importing message history. This avoids a slow thread preventing discovery of later conversations.
 - Real Page discovery was checked read-only and returned 329 conversations across 4 API pages. A separate real-Page data directory was created; the earlier temporary Page archive was preserved.
-- A 5-message history page size is used because continuation pages with full attachment metadata can stall at larger sizes. On Windows, Graph API calls use the built-in `curl.exe` through private stdin (not command-line credentials) so an OS-level time limit can recover from Python SSL read stalls. Pagination still continues until Meta provides no next cursor.
+- A 5-message history page size is used because continuation pages with full attachment metadata can stall at larger sizes. On Windows, Graph API calls use the built-in `curl.exe` with a short-lived local config file (not command-line credentials) so an OS-level time limit can recover from Python SSL read stalls. Pagination still continues until Meta provides no next cursor.
 - Commits already present: `ad85a6e`, `079a752`, `32d7d56`, `ad4166f`, `f102f61`, `eb84a4c`, `c58670f`.
 
 ## Current live/archive state

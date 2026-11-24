@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import io
 import json
+import subprocess
 import tempfile
 import time
 import unittest
@@ -180,7 +181,7 @@ class ArchiveTests(unittest.TestCase):
         client._curl_path = 'curl.exe'
         captured = {}
         def fake_run(config):
-            captured['args'] = [client._curl_path, '--config', '-']
+            captured['args'] = [client._curl_path, '--config', 'temporary-file']
             captured['config'] = config
             return {'data': []}
         from unittest.mock import patch
@@ -188,6 +189,21 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual(client.get('page-1/conversations'), {'data': []})
         self.assertNotIn('secret-token', ' '.join(captured['args']))
         self.assertIn('Authorization: Bearer secret-token', captured['config'])
+
+    def test_windows_curl_uses_a_nonblocking_deadline(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', hard_timeout_seconds=0.01)
+        client._curl_path = 'curl.exe'
+        class Process:
+            args = ['curl.exe']
+            returncode = None
+            def poll(self): return None
+            def kill(self): self.killed = True
+        process = Process()
+        from unittest.mock import patch
+        with patch('inbox_archive.graph.subprocess.Popen', return_value=process):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                client._run_curl('url = "https://example.test"')
+        self.assertTrue(process.killed)
 
     def test_raw_api_pagination_credentials_are_not_written_to_disk(self):
         message = self.message()

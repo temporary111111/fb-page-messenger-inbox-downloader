@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -89,24 +90,32 @@ class GraphClient:
         # Do not use capture_output on Windows: its reader threads can remain stuck
         # when a network process is terminated. Temporary handles leave no response
         # payload on disk once closed.
-        with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
-            process = subprocess.Popen([self._curl_path, '--config', '-'], stdin=subprocess.PIPE,
-                stdout=output, stderr=errors)
+        config_path = None
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as config_file:
+                config_file.write(config)
+                config_path = config_file.name
+            with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+                process = subprocess.Popen([self._curl_path, '--config', config_path], stdin=subprocess.DEVNULL,
+                    stdout=output, stderr=errors)
+                deadline = time.monotonic() + self.hard_timeout_seconds
+                while process.poll() is None:
+                    if time.monotonic() >= deadline:
+                        process.kill()
+                        # Do not wait here. Some Windows process handles can block
+                        # after termination while a network driver unwinds.
+                        raise subprocess.TimeoutExpired(process.args, self.hard_timeout_seconds)
+                    time.sleep(0.1)
+                if process.returncode:
+                    raise OSError('curl request failed')
+                output.seek(0)
+                return json.loads(output.read().decode('utf-8'))
+        finally:
             try:
-                process.stdin.write(config.encode('utf-8'))
-                process.stdin.close()
-                process.wait(timeout=self.hard_timeout_seconds)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
-                raise
-            finally:
-                if process.stdin and not process.stdin.closed:
-                    process.stdin.close()
-            if process.returncode:
-                raise OSError('curl request failed')
-            output.seek(0)
-            return json.loads(output.read().decode('utf-8'))
+                if config_path:
+                    os.remove(config_path)
+            except OSError:
+                pass
 
     def _get_direct(self, path, params=None):
         url = self._url_for(path, params)
