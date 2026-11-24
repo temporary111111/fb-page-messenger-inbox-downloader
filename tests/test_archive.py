@@ -66,6 +66,25 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(self.db.status()['messages'], 2)
         self.assertEqual(self.db.status()['incomplete_conversations'], 0)
 
+    def test_discovers_every_conversation_page_before_importing_messages(self):
+        class Graph:
+            def get(inner, path, params=None):
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1'}], 'paging': {
+                        'next': 'https://graph.facebook.com/v27.0/page-1/conversations?after=next'}}
+                if 'page-1/conversations?after=next' in path:
+                    return {'data': [{'id': 'c2'}]}
+                if path == 'c1/messages':
+                    self.assertEqual(self.db.status()['conversations'], 2)
+                    return {'data': []}
+                if path == 'c2/messages':
+                    return {'data': []}
+                raise AssertionError(path)
+
+        SyncEngine(self.db, Graph()).run()
+        self.assertEqual(self.db.status()['conversations'], 2)
+        self.assertEqual(self.db.status()['incomplete_conversations'], 0)
+
     def test_webhook_signature_dedup_and_canonical_merge(self):
         payload = {'object': 'page', 'entry': [{'id': 'page-1', 'messaging': [{
             'sender': {'id': 'customer'}, 'recipient': {'id': 'page-1'},

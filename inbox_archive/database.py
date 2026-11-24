@@ -72,13 +72,14 @@ class Database:
                 CREATE TABLE IF NOT EXISTS webhook_events(
                     id TEXT PRIMARY KEY, received_at TEXT NOT NULL, raw_json TEXT NOT NULL);
             ''')
+            con.execute('BEGIN IMMEDIATE')
+            con.execute("INSERT OR IGNORE INTO metadata VALUES('page_id', ?)", (page_id,))
             existing = con.execute("SELECT value FROM metadata WHERE key='page_id'").fetchone()
-            if existing and existing[0] != page_id:
+            if existing[0] != page_id:
                 raise ValueError('This data directory belongs to a different Page. Choose another --data-dir.')
             columns = {row['name'] for row in con.execute('PRAGMA table_info(messages)')}
             if 'api_imported' not in columns:
                 con.execute('ALTER TABLE messages ADD COLUMN api_imported INTEGER NOT NULL DEFAULT 0')
-            con.execute("INSERT OR IGNORE INTO metadata VALUES('page_id', ?)", (page_id,))
             con.execute("INSERT OR REPLACE INTO metadata VALUES('schema_version', '2')")
 
     @contextmanager

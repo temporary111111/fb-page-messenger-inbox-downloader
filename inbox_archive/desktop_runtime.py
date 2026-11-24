@@ -156,6 +156,7 @@ class DesktopController:
             if self.closed or self.running:
                 return False
             store = ConfigStore(self.root)
+            store.ensure_verify_token()
             values = store.read()
             settings = store.validate(values)
             self.secrets = [values.get(key, '') for key in SECRET_KEYS]
@@ -181,6 +182,8 @@ class DesktopController:
         try:
             for line in process.stdout:
                 try:
+                    if self.worker is not process or self.stopping:
+                        continue
                     event = json.loads(line)
                     kind = event.pop('kind')
                     if kind in ('phase', 'status', 'error', 'activity', 'ready'):

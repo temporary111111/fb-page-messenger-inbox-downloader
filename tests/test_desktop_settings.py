@@ -65,6 +65,50 @@ class DesktopSettingsTests(unittest.TestCase):
         self.assertFalse((destination / 'EXPORT_COMPLETE').exists())
         self.assertTrue((destination / 'EXPORT_INCOMPLETE').exists())
 
+    def test_verify_token_is_persisted_before_cross_process_start(self):
+        values = {**self.values, 'WEBHOOK_VERIFY_TOKEN': ''}
+        (self.root / '.env').write_text('\n'.join(k+'='+v for k,v in values.items()), encoding='utf-8')
+        store = ConfigStore(self.root)
+        store.ensure_verify_token()
+        first = store.read()['WEBHOOK_VERIFY_TOKEN']
+        self.assertTrue(first)
+        self.assertEqual(ConfigStore(self.root).read()['WEBHOOK_VERIFY_TOKEN'], first)
+
+    def test_export_rejects_absolute_attachment_path_without_touching_live_file(self):
+        db = Database(self.root / 'data', '123')
+        folder = db.root / 'attachments'
+        folder.mkdir()
+        live = folder / 'receipt.jpg'
+        live.write_bytes(b'original live image')
+        db.save_conversation({'id':'c1'})
+        db.save_message('c1', {'id':'m1','message':'receipt','attachments':{'data':[{'id':'a1'}]}})
+        db.execute("UPDATE attachments SET status='downloaded',local_path=?", (str(live),))
+        with self.assertRaises(ValueError):
+            export_archive(db, self.root / 'unsafe-export')
+        self.assertEqual(live.read_bytes(), b'original live image')
+
+    def test_publishing_a_build_preserves_existing_portable_user_data(self):
+        from inbox_archive.packaging import publish_bundle
+        previous = self.root / 'dist' / 'InboxArchive'
+        previous.mkdir(parents=True)
+        (previous / '.env').write_text('private settings', encoding='utf-8')
+        staging = self.root / 'staging'
+        staging.mkdir()
+        (staging / 'InboxArchive.exe').write_bytes(b'new app')
+        release = publish_bundle(staging, self.root / 'dist')
+        self.assertNotEqual(release, previous)
+        self.assertEqual((previous / '.env').read_text(), 'private settings')
+        self.assertEqual((release / 'InboxArchive.exe').read_bytes(), b'new app')
+
+    def test_recovering_unreadable_configuration_keeps_an_original_backup(self):
+        original = b'\xff\xfe\x00broken configuration'
+        (self.root / '.env').write_bytes(original)
+        ConfigStore(self.root).save(self.values)
+        backups=list(self.root.glob('.env.backup-*'))
+        self.assertEqual(len(backups),1)
+        self.assertEqual(backups[0].read_bytes(),original)
+        self.assertEqual(ConfigStore(self.root).settings().page_id,'123')
+
 
 if __name__ == '__main__':
     unittest.main()

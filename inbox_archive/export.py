@@ -41,15 +41,23 @@ def export_archive(db, destination, cancel=None):
                             media = dict(attachment)
                             media['raw'] = json.loads(media.pop('raw_json'))
                             if media['local_path']:
-                                source = db.root / media['local_path']
-                                target = destination / media['local_path']
+                                relative = Path(media['local_path'])
+                                if relative.is_absolute() or '..' in relative.parts or not relative.parts or relative.parts[0] != 'attachments':
+                                    raise ValueError('Unsafe attachment path in archive; export stopped without changing the original file.')
+                                source = (db.root / relative).resolve()
+                                target = (destination / relative).resolve()
+                                if (not source.is_relative_to(db.root / 'attachments')
+                                        or not target.is_relative_to(destination / 'attachments') or source == target
+                                        or (target.exists() and source.exists() and source.samefile(target))):
+                                    raise ValueError('Attachment resolves outside its archive folder or points to the live file.')
                                 target.parent.mkdir(exist_ok=True)
                                 if source.is_file():
-                                    with source.open('rb') as incoming, target.open('wb') as outgoing:
-                                        while chunk := incoming.read(1024 * 1024):
-                                            check_cancel()
-                                            outgoing.write(chunk)
-                                    shutil.copystat(source, target)
+                                    if not target.exists():
+                                        with source.open('rb') as incoming, target.open('xb') as outgoing:
+                                            while chunk := incoming.read(1024 * 1024):
+                                                check_cancel()
+                                                outgoing.write(chunk)
+                                        shutil.copystat(source, target)
                                 else:
                                     raise FileNotFoundError('An archived attachment file is missing. Run download to recover it, then export again.')
                             item['attachments'].append(media)

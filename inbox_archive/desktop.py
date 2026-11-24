@@ -45,7 +45,17 @@ class DesktopApp:
         self.store = ConfigStore(app_dir)
         self.events = queue.Queue(maxsize=200)
         self.controller = controller_factory(self.store.root, self.events)
-        self.variables = {key: tk.StringVar(value=value) for key, value in self.store.read().items() if key in DEFAULTS}
+        self.config_error = ''
+        try:
+            self.store.ensure_verify_token()
+        except (ValueError, OSError):
+            pass  # Incomplete first-time settings are editable in the GUI.
+        try:
+            initial_values = self.store.read()
+        except (ValueError, OSError):
+            initial_values = {**DEFAULTS, 'WEBHOOK_VERIFY_TOKEN': self.store.generated_token}
+            self.config_error = 'Settings could not be read. Enter them again; an unreadable file will be kept as a backup.'
+        self.variables = {key: tk.StringVar(master=window, value=value) for key, value in initial_values.items() if key in DEFAULTS}
         self.phase = 'Stopped'
         self.busy = False
         self.exporting = False
@@ -62,6 +72,9 @@ class DesktopApp:
         self.callback_open = False
         self.configured = False
         self.worker_status = {}
+        self.secret_fields = []
+        self.archive_generation = 0
+        self.background_threads = []
         self._style()
         self._build()
         self.set_phase('Stopped')
@@ -73,7 +86,7 @@ class DesktopApp:
             self.store.validate(self.store.read())
         except (ValueError, OSError):
             self.show_settings()
-            self.settings_feedback.set('Add your Page credentials to get started.')
+            self.settings_feedback.set(self.config_error or 'Add your Page credentials to get started.')
         else:
             self.configured = True
             if autostart:
@@ -81,7 +94,7 @@ class DesktopApp:
 
     def _style(self):
         self.window.title('Inbox Archive')
-        self.window.geometry('720x610')
+        self.window.geometry('720x640')
         self.window.minsize(600, 560)
         self.window.configure(bg=BG)
         for name in ('TkDefaultFont', 'TkTextFont'):
@@ -155,6 +168,8 @@ class DesktopApp:
         connections.pack(fill='x')
         self.page_status = self._connection_row(connections, 'Facebook Page', 'Not checked')
         self.tunnel_status = self._connection_row(connections, 'Webhook tunnel', 'Stopped')
+        self.webhook_receipt = tk.StringVar(master=self.window, value='No webhook received yet')
+        self.label(connections, textvariable=self.webhook_receipt, style='Muted.TLabel').pack(anchor='w', pady=(0, 8))
         callback_row = ttk.Frame(connections)
         callback_row.pack(fill='x', pady=(2, 0))
         ttk.Button(callback_row, text='Callback URL ▾', style='Link.TButton', command=self.toggle_callback).pack(side='left')
@@ -267,6 +282,7 @@ class DesktopApp:
                 entry.configure(show='' if hidden else '●')
                 reveal.configure(text='Hide' if hidden else 'Show')
             reveal.configure(command=toggle)
+            self.secret_fields.append((entry, reveal))
             reveal.pack(side='right', padx=(8, 0))
         if browse:
             def choose():
@@ -287,9 +303,16 @@ class DesktopApp:
     def show_settings(self):
         if self.closing:
             return
-        for key, value in self.store.read().items():
+        try:
+            values = self.store.read()
+        except (ValueError, OSError):
+            values = {}
+        for key, value in values.items():
             if key in self.variables:
                 self.variables[key].set(value)
+        for entry, reveal in self.secret_fields:
+            entry.configure(show='●')
+            reveal.configure(text='Show')
         current = self.variables['POLL_SECONDS'].get()
         options = dict(self.interval_options)
         choice = next((label for label, value in options.items() if value == current), None)
@@ -308,7 +331,7 @@ class DesktopApp:
         self.settings_open = False
         self.settings_view.pack_forget()
         self.overview.pack(fill='both', expand=True)
-        self.resize_window(610)
+        self.resize_window(640)
 
     def resize_window(self, desired_height):
         width = min(720, self.window.winfo_screenwidth() - 40)
@@ -341,7 +364,7 @@ class DesktopApp:
             self.resize_window(720)
         else:
             self.activity_text.pack_forget()
-            self.resize_window(610)
+            self.resize_window(640)
 
     def background(self, callback, done_kind='task_done'):
         def run():
@@ -351,19 +374,28 @@ class DesktopApp:
             except CancelledError:
                 self.events.put({'kind': 'export_cancelled'})
             except Exception as exc:
-                values = self.store.read()
+                try:
+                    values = self.store.read()
+                except (ValueError, OSError):
+                    values = {}
                 safe = str(exc) if isinstance(exc, (ValueError, GraphError)) else 'Could not complete that action. Check connection, folder access and available disk space.'
                 self.events.put({'kind': 'task_error', 'task': done_kind,
                     'message': redact(safe, [values.get(key, '') for key in SECRET_KEYS])})
         thread = threading.Thread(target=run, daemon=True)
+        self.background_threads = [t for t in self.background_threads if t.is_alive()]
+        self.background_threads.append(thread)
         thread.start()
         return thread
 
     def _refresh_archive(self):
+        self.archive_generation += 1
+        generation = self.archive_generation
         def read():
             settings = self.store.settings()
+            counts = None
             if settings.page_id and (settings.data_dir / 'inbox.sqlite3').exists():
-                return Database(settings.data_dir, settings.page_id).status()
+                counts = Database(settings.data_dir, settings.page_id).status()
+            return {'generation': generation, 'counts': counts}
         self.background(read, 'archive_loaded')
 
     def start(self):
@@ -402,6 +434,12 @@ class DesktopApp:
 
     def update_counts(self, counts):
         if not counts:
+            self.worker_status = {}
+            for variable in self.counts.values():
+                variable.set('0')
+            self.last_sync.set('Not yet synced')
+            self.page_status.set('Not checked')
+            self.webhook_receipt.set('No webhook received yet')
             return
         self.worker_status = counts
         for key, variable in self.counts.items():
@@ -413,6 +451,10 @@ class DesktopApp:
             self.feedback.set(counts['sync']['last_error'])
         elif stamp:
             self.page_status.set('Connected' if self.controller.running else 'Last check successful')
+        else:
+            self.page_status.set('Not checked')
+        received = counts.get('sync', {}).get('last_webhook')
+        self.webhook_receipt.set('Last webhook ' + local_time(received) if received else 'No webhook received yet')
         problems = counts.get('failed_attachments', 0) + counts.get('unavailable_attachments', 0)
         if problems:
             self.feedback.set(f'{problems} file(s) need attention. Collection will retry available downloads.')
@@ -439,10 +481,10 @@ class DesktopApp:
         self.save_button.configure(state='disabled')
         self.settings_feedback.set('Saving settings…')
         def save():
-            # Stop before applying a new port or archive path.
+            # Persist first: failed replacement must not interrupt the current collector.
+            self.store.save(values)
             if was_running:
                 self.controller.stop()
-            self.store.save(values)
             if was_running:
                 self.controller.start()
             return {'was_running': was_running, 'first_setup': first_setup}
@@ -524,14 +566,17 @@ class DesktopApp:
             elif kind == 'status':
                 self.update_counts(event['counts'])
             elif kind == 'archive_loaded':
-                self.update_counts(event.get('result'))
+                result = event.get('result')
+                if result and result['generation'] == self.archive_generation:
+                    self.update_counts(result['counts'])
             elif kind == 'tunnel':
                 self.tunnel_status.set(event['state'])
-                if event.get('callback') and event['callback'] != self.callback:
-                    self.callback = event['callback']
-                    self.callback_text.set(self.callback)
-                    self.feedback.set('New callback URL. Update it in Meta if it changed.')
-                    self.add_activity('A temporary callback address is available.')
+                if event.get('callback', '') != self.callback:
+                    self.callback = event.get('callback', '')
+                    self.callback_text.set(self.callback or 'Start sync to create a temporary tunnel address.')
+                    if self.callback:
+                        self.feedback.set('New callback URL. Update it in Meta if it changed.')
+                        self.add_activity('A temporary callback address is available.')
             elif kind in ('activity', 'error'):
                 self.add_activity(event['message'])
                 if kind == 'error':
@@ -546,6 +591,11 @@ class DesktopApp:
                 self.save_button.configure(state='normal')
                 self.settings_feedback.set('Saved.')
                 self.feedback.set('Settings saved.')
+                self.update_counts(None)
+                self.callback = ''
+                self.callback_text.set('Start sync to create a temporary tunnel address.')
+                self.latest_export = None
+                self.open_export_button.pack_forget()
                 self.show_overview()
                 self._refresh_archive()
                 if event['result']['first_setup'] and not event['result']['was_running']:

@@ -1,5 +1,8 @@
 .env
+.env.*
+!.env.example
 data/
+data-*/
 exports/
 demo-data/
 __pycache__/

@@ -29,7 +29,10 @@ class SyncEngine:
         params = {'platform': 'MESSENGER', 'fields': 'id,updated_time,participants', 'limit': 100}
         failures = 0
         seen = set()
+        pending = []
         try:
+            # Discover the entire inbox before one slow message thread can delay later
+            # conversation pages. This is especially important for the first archive run.
             while path:
                 self.check_stop()
                 if path in seen:
@@ -42,23 +45,25 @@ class SyncEngine:
                     previous = self.db.rows('SELECT * FROM conversations WHERE id=?', (cid,))
                     self.db.save_conversation(conversation)
                     previous = previous[0] if previous else None
-                    cutoff = datetime.now(timezone.utc) - timedelta(hours=self.full_scan_hours)
-                    recent_full = (previous and previous['last_full_scan']
-                        and datetime.fromisoformat(previous['last_full_scan']) > cutoff)
-                    if (not full and previous and previous['complete'] and recent_full
-                            and conversation.get('updated_time')
-                            and previous['updated_time'] == conversation['updated_time']):
-                        continue
-                    try:
-                        rescan = full or bool(previous and previous['complete'] and not recent_full)
-                        self.sync_conversation(cid, previous, rescan)
-                    except (GraphError, ValueError) as exc:
-                        failures += 1
-                        self.db.execute('UPDATE conversations SET error=?,complete=0 WHERE id=?', (str(exc), cid))
-                        log.warning('Conversation import failed; checkpoint retained. %s', exc)
+                    pending.append((cid, previous, conversation.get('updated_time')))
                 next_url = page.get('paging', {}).get('next')
                 path, params = (clean_next(next_url), None) if next_url else (None, None)
             self.db.set_meta('last_discovery_success', now())
+            for cid, previous, updated_time in pending:
+                self.check_stop()
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=self.full_scan_hours)
+                recent_full = (previous and previous['last_full_scan']
+                    and datetime.fromisoformat(previous['last_full_scan']) > cutoff)
+                if (not full and previous and previous['complete'] and recent_full
+                        and updated_time and previous['updated_time'] == updated_time):
+                    continue
+                try:
+                    rescan = full or bool(previous and previous['complete'] and not recent_full)
+                    self.sync_conversation(cid, previous, rescan)
+                except (GraphError, ValueError) as exc:
+                    failures += 1
+                    self.db.execute('UPDATE conversations SET error=?,complete=0 WHERE id=?', (str(exc), cid))
+                    log.warning('Conversation import failed; checkpoint retained. %s', exc)
             self.db.set_meta('last_error', f'{failures} conversation(s) failed' if failures else '')
             if not failures:
                 self.db.set_meta('last_sync_success', now())

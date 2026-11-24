@@ -3,9 +3,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import io
+from unittest.mock import patch
 from pathlib import Path
 
 from inbox_archive.desktop_runtime import DesktopController, TunnelStatus, WindowsJob, redact
+from inbox_archive.desktop_settings import ConfigStore
 
 
 class DesktopRuntimeTests(unittest.TestCase):
@@ -29,17 +32,23 @@ class DesktopRuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             controller = DesktopController(Path(folder), queue.Queue())
             owned = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], stdin=subprocess.PIPE)
+            tunnel = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
             unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
             try:
                 controller.adopt_owned(owned, 'worker')
+                controller.adopt_owned(tunnel, 'tunnel')
                 controller.stop(timeout=0.1)
                 self.assertIsNotNone(owned.poll())
+                self.assertIsNotNone(tunnel.poll())
                 self.assertIsNone(unrelated.poll())
                 controller.stop(timeout=0.1)
             finally:
                 controller.close()
                 if owned.poll() is None:
                     owned.kill()
+                if tunnel.poll() is None:
+                    tunnel.kill()
+                    tunnel.wait()
                 unrelated.terminate()
                 unrelated.wait(timeout=5)
 
@@ -57,6 +66,31 @@ class DesktopRuntimeTests(unittest.TestCase):
             if child.poll() is None:
                 child.kill()
                 child.wait()
+
+    def test_repeated_start_cannot_create_duplicate_workers(self):
+        class Child:
+            def __init__(self):
+                self.code = None
+                self.stdin = io.StringIO()
+                self.stdout = io.StringIO()
+                self.stderr = io.StringIO()
+            def poll(self): return self.code
+            def wait(self, timeout=None): self.code=0
+        with tempfile.TemporaryDirectory() as folder:
+            ConfigStore(folder).save({'META_PAGE_ID':'123','META_PAGE_ACCESS_TOKEN':'token',
+                'META_APP_SECRET':'secret','WEBHOOK_VERIFY_TOKEN':'verify'})
+            controller=DesktopController(folder,queue.Queue())
+            child=Child()
+            def adopt(process,role): setattr(controller,role,process)
+            try:
+                with patch('inbox_archive.desktop_runtime.subprocess.Popen',return_value=child) as launch, \
+                     patch('inbox_archive.desktop_runtime.threading.Thread.start'), \
+                     patch.object(controller,'adopt_owned',side_effect=adopt):
+                    self.assertTrue(controller.start())
+                    self.assertFalse(controller.start())
+                    self.assertEqual(launch.call_count,1)
+            finally:
+                controller.close()
 
 
 if __name__ == '__main__':

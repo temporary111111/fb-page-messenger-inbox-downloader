@@ -6,7 +6,7 @@ Local Facebook **Page** inbox archive. Native Windows desktop app and command-li
 
 Double-click **Open Inbox Archive.cmd** in this project folder. It opens the packaged executable when available and passes this directory as the app directory, so your existing `.env`, database and exports are reused. Otherwise it launches the Python source window. No terminals need to remain open.
 
-The direct portable executable is `dist/InboxArchive/InboxArchive.exe`. By default it keeps its configuration, `data` and `exports` beside that executable. Copy the **whole InboxArchive folder**, including `_internal`, to move the program. Never copy only the `.exe`. The root launcher is the recommended way to use the existing project archive; it does not copy private data into the build.
+The direct portable executable is `dist/InboxArchive-<build timestamp>/InboxArchive.exe`. By default it keeps its configuration, `data` and `exports` beside that executable. Copy the **whole build folder**, including `_internal`, to move the program. Never copy only the `.exe`. The root launcher selects the newest build and is the recommended way to use the existing project archive; it does not copy private data into the build.
 
 - **Overview:** latest collection status, message/file counts and Page/tunnel state.
 - **Settings:** edit credentials, storage and interval; Test connection checks Page identity and conversation-read access. Advanced holds webhook/API/port/file-limit settings and an optional cloudflared path.
@@ -27,7 +27,7 @@ Run the source directly with `python desktop_entry.py`. For inspection without s
 .\build-desktop.ps1
 ```
 
-The build script creates the ignored `.venv`, installs the pinned build-only PyInstaller requirement and produces `dist/InboxArchive/InboxArchive.exe`. The result includes Python and Tcl/Tk; end users do not need Python. Run this build on Windows with a working Tk installation, outside restricted environments that cannot initialize Tcl. Actual credentials, archives and exports are never bundled. Keep the full output folder together.
+The build script creates the ignored `.venv`, installs the pinned build-only PyInstaller requirement and produces a **new timestamped folder** under `dist`. It stages compilation in `build` and never replaces an existing portable installation or its credentials/data/exports. The result includes Python and Tcl/Tk; end users do not need Python. Run this build on Windows with a working Tk installation, outside restricted environments that cannot initialize Tcl. Actual credentials, archives and exports are never bundled. Keep the full output folder together.
 
 Unsigned locally built executables may display a Windows publisher prompt; the app does not change Windows security settings or install a background service.
 
