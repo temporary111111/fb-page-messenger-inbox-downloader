@@ -205,6 +205,42 @@ class ArchiveTests(unittest.TestCase):
                 client._run_curl('url = "https://example.test"')
         self.assertTrue(process.killed)
 
+    def test_windows_curl_reports_safe_failure_reason(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', retries=1, hard_timeout_seconds=15)
+        client._curl_path = 'curl.exe'
+        from unittest.mock import patch
+        with patch.object(client, '_run_curl', side_effect=OSError('curl exit 28')):
+            with self.assertRaises(GraphError) as raised:
+                client.get('page-1/conversations')
+        self.assertIn('curl exit 28', str(raised.exception))
+        self.assertNotIn('secret-token', str(raised.exception))
+
+    def test_duplicate_attachment_pagination_stops_without_looping(self):
+        message = self.message()
+        message['attachments']['paging'] = {
+            'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a1'
+        }
+        calls = []
+        class Graph:
+            def get(self, path, params=None):
+                calls.append(path)
+                if path == 'page-1/conversations':
+                    return {'data': [{'id': 'c1', 'updated_time': '2026-11-24T10:00:00+0000'}]}
+                if path.startswith('c1/messages'):
+                    return {'data': [message]}
+                if path == 'https://graph.facebook.com/v27.0/m1/attachments?after=a1':
+                    return {
+                        'data': [message['attachments']['data'][0]],
+                        'paging': {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=a2'},
+                    }
+                self.fail(f'Unexpected extra attachment page requested: {path}')
+        SyncEngine(self.db, Graph()).run()
+        status = self.db.status()
+        self.assertEqual(status['messages'], 1)
+        self.assertEqual(status['attachments'], 1)
+        self.assertEqual(status['incomplete_conversations'], 0)
+        self.assertIn('https://graph.facebook.com/v27.0/m1/attachments?after=a1', calls)
+
     def test_raw_api_pagination_credentials_are_not_written_to_disk(self):
         message = self.message()
         message['attachments']['paging'] = {'next': 'https://graph.facebook.com/v27.0/m1/attachments?after=x&access_token=PRIVATE_TOKEN&appsecret_proof=PRIVATE_PROOF'}

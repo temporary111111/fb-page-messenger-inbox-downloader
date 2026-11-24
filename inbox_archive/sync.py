@@ -111,6 +111,10 @@ class SyncEngine:
                 if isinstance(attachments, dict):
                     next_attachment = attachments.get('paging', {}).get('next')
                     attachment_seen = set()
+                    seen_attachment_ids = {
+                        str(item['id']) for item in attachments.get('data', [])
+                        if isinstance(item, dict) and item.get('id') is not None
+                    }
                     while next_attachment:
                         self.check_stop()
                         next_attachment = clean_next(next_attachment)
@@ -118,7 +122,22 @@ class SyncEngine:
                             raise GraphError('Repeated attachment pagination cursor')
                         attachment_seen.add(next_attachment)
                         extra = self.graph.get(next_attachment)
-                        attachments.setdefault('data', []).extend(extra.get('data', []))
+                        extra_items = extra.get('data', [])
+                        if not extra_items:
+                            break
+                        new_items = [
+                            item for item in extra_items
+                            if not isinstance(item, dict) or item.get('id') is None
+                            or str(item['id']) not in seen_attachment_ids
+                        ]
+                        if not new_items:
+                            # Meta can return the same attachment(s) with a new paging.next cursor indefinitely.
+                            break
+                        seen_attachment_ids.update(
+                            str(item['id']) for item in new_items
+                            if isinstance(item, dict) and item.get('id') is not None
+                        )
+                        attachments.setdefault('data', []).extend(new_items)
                         next_attachment = extra.get('paging', {}).get('next')
             next_url = page.get('paging', {}).get('next')
             next_cursor = clean_next(next_url) if next_url else None

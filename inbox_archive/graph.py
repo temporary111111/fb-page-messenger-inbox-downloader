@@ -74,17 +74,23 @@ class GraphClient:
             'silent',
             'show-error',
         ))
+        last_reason = 'unknown error'
         for attempt in range(self.retries):
             try:
                 payload = self._run_curl(config)
                 if 'error' in payload:
                     raise GraphError('Meta returned an API error; check permissions and Page token')
                 return payload
-            except (OSError, subprocess.TimeoutExpired, ValueError):
-                if attempt < self.retries - 1:
-                    time.sleep(2 ** attempt)
-                    continue
-                raise GraphError(f'Could not reach Meta after {self.retries} attempts') from None
+            except subprocess.TimeoutExpired:
+                last_reason = f'timed out after {self.hard_timeout_seconds}s'
+            except ValueError:
+                last_reason = 'invalid JSON response'
+            except OSError as exc:
+                last_reason = str(exc) or 'OS error'
+            if attempt < self.retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise GraphError(f'Could not reach Meta after {self.retries} attempts ({last_reason})') from None
 
     def _run_curl(self, config):
         # Do not use capture_output on Windows: its reader threads can remain stuck
@@ -107,7 +113,7 @@ class GraphClient:
                         raise subprocess.TimeoutExpired(process.args, self.hard_timeout_seconds)
                     time.sleep(0.1)
                 if process.returncode:
-                    raise OSError('curl request failed')
+                    raise OSError(f'curl exit {process.returncode}')
                 output.seek(0)
                 return json.loads(output.read().decode('utf-8'))
         finally:
