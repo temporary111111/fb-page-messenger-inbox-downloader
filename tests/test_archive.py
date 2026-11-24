@@ -3,6 +3,7 @@ import hmac
 import io
 import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from urllib.error import URLError
@@ -91,7 +92,7 @@ class ArchiveTests(unittest.TestCase):
                 if path == 'page-1/conversations':
                     return {'data': [{'id': 'c1'}]}
                 if path == 'c1/messages':
-                    self.assertEqual(params['limit'], 25)
+                    self.assertEqual(params['limit'], 5)
                     return {'data': []}
                 raise AssertionError(path)
 
@@ -166,6 +167,27 @@ class ArchiveTests(unittest.TestCase):
     def test_graph_error_does_not_expose_credentials(self):
         client = GraphClient('secret-token', 'v27.0', 'app-secret')
         self.assertNotIn('secret-token', repr(client))
+
+    def test_graph_client_allows_short_retryable_request_budget(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', timeout_seconds=10, retries=1,
+                             hard_timeout_seconds=15)
+        self.assertEqual(client.timeout_seconds, 10)
+        self.assertEqual(client.retries, 1)
+        self.assertEqual(client.hard_timeout_seconds, 15)
+
+    def test_windows_curl_keeps_tokens_out_of_command_arguments(self):
+        client = GraphClient('secret-token', 'v27.0', 'app-secret', hard_timeout_seconds=15)
+        client._curl_path = 'curl.exe'
+        captured = {}
+        def fake_run(config):
+            captured['args'] = [client._curl_path, '--config', '-']
+            captured['config'] = config
+            return {'data': []}
+        from unittest.mock import patch
+        with patch.object(client, '_run_curl', fake_run):
+            self.assertEqual(client.get('page-1/conversations'), {'data': []})
+        self.assertNotIn('secret-token', ' '.join(captured['args']))
+        self.assertIn('Authorization: Bearer secret-token', captured['config'])
 
     def test_raw_api_pagination_credentials_are_not_written_to_disk(self):
         message = self.message()
@@ -248,7 +270,7 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual(self.db.status()['messages'], 1)
             calls.append('download')
         SyncEngine(self.db, Graph(), after_page=download).run()
-        self.assertLess(calls.index('download'), calls.index('https://graph.facebook.com/v27.0/c1/messages?after=old'))
+        self.assertLess(calls.index('download'), calls.index('c1/messages?after=old'))
 
     def test_attachment_reordering_cannot_reuse_the_wrong_file(self):
         self.db.save_conversation({'id': 'c1'})

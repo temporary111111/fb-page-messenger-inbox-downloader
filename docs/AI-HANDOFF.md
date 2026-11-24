@@ -20,14 +20,14 @@ Provide a zero-hosting-cost, local Windows archive for one Facebook business Pag
 - Native desktop UI: settings, start/stop, tunnel status, export, portable launcher/build scripts.
 - Conversation discovery now follows every available Page-conversation pagination page **before** importing message history. This avoids a slow thread preventing discovery of later conversations.
 - Real Page discovery was checked read-only and returned 329 conversations across 4 API pages. A separate real-Page data directory was created; the earlier temporary Page archive was preserved.
-- A 25-message history page size is used because full 25-message probes succeeded while larger pages could stall. Pagination still continues until Meta provides no next cursor.
+- A 5-message history page size is used because continuation pages with full attachment metadata can stall at larger sizes. On Windows, Graph API calls use the built-in `curl.exe` through private stdin (not command-line credentials) so an OS-level time limit can recover from Python SSL read stalls. Pagination still continues until Meta provides no next cursor.
 - Commits already present: `ad85a6e`, `079a752`, `32d7d56`, `ad4166f`, `f102f61`, `eb84a4c`, `c58670f`.
 
 ## Current live/archive state
 
 - Real Page archive directory is local and Git-ignored. Do not name it or inspect customer rows in chat output.
 - All 329 conversation records were discovered and persisted.
-- Initial message import began successfully, but one older message pagination request stalled after the first small page. This is the active reliability investigation.
+- Initial message import began successfully. The real archive has all conversation records and some committed historical message/file pages; remaining threads are resumable. A few historic cursors can be slow at Meta, so controlled 5-message pages and bounded Windows requests are used.
 - No token/permission rejection was observed in the successful discovery and small message probes.
 - A diagnostic sync with a delayed local stack dump was started just before a previous interruption. Treat any prior process as unknown; first inspect writer lock/status safely before starting another sync.
 
@@ -35,8 +35,7 @@ Provide a zero-hosting-cost, local Windows archive for one Facebook business Pag
 
 The working tree may contain two changes not yet committed:
 
-1. `GraphClient` accepts `timeout_seconds` and `retries`, with defaults of 15 seconds and 2 attempts. This was intended to prevent one slow cursor from stalling the full inbox.
-2. A focused unit test for that request-budget configuration.
+1. Graph API Windows transport, small controlled continuation pages, and related unit tests need a final commit.
 
 Focused archive, server, settings, runtime tests passed before that change; archive tests passed after the 25-message page change. Re-run the full suite after deciding the final stall-handling design.
 
@@ -49,12 +48,9 @@ Focused archive, server, settings, runtime tests passed before that change; arch
 
 ## Recommended next steps
 
-1. Inspect the active/previous diagnostic process and the local archive status without exposing records.
-2. Identify exactly where the stalled message import blocks (network read, a Graph API response characteristic, attachment pagination, or database transaction).
-3. Design/test a bounded per-conversation failure strategy so a problematic cursor is checkpointed and the remaining conversations continue.
-4. Run a long real-archive sync and verify counts progress across multiple threads.
-5. Repair Tk/Tcl locally, rebuild the desktop app, and have the user test the UI.
-6. Commit the final reliability changes only after tests and a data-safe staging check.
+1. Run a long real-archive sync and verify counts progress across multiple threads.
+2. Repair Tk/Tcl locally, rebuild the desktop app, and have the user test the UI.
+3. Commit any further reliability changes only after tests and a data-safe staging check.
 
 ## Commands safe to start with
 

@@ -1,6 +1,7 @@
 import logging
 from concurrent.futures import CancelledError
 from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from .database import now
 from .graph import GraphError, clean_next
@@ -8,9 +9,9 @@ from .graph import GraphError, clean_next
 
 log = logging.getLogger(__name__)
 MESSAGE_FIELDS = 'id,created_time,from,to,message,attachments,is_unsupported'
-# Full attachment metadata can make 100-message Graph responses slow or unreliable.
+# Full attachment metadata can make larger Graph responses slow or unreliable.
 # Pagination still continues until Meta reports no next cursor.
-MESSAGE_PAGE_SIZE = 25
+MESSAGE_PAGE_SIZE = 5
 
 
 class SyncEngine:
@@ -24,6 +25,18 @@ class SyncEngine:
     def check_stop(self):
         if self.stop and self.stop.is_set():
             raise CancelledError('Sync stopped')
+
+    @staticmethod
+    def message_request(cid, cursor=None):
+        if not cursor:
+            return f'{cid}/messages', {'fields': MESSAGE_FIELDS, 'limit': MESSAGE_PAGE_SIZE}
+        after = parse_qs(urlsplit(cursor).query).get('after', [''])[0]
+        if after:
+            # Meta's opaque `next` URLs can become expensive on large threads. Keep
+            # the cursor but make the next page request explicitly bounded.
+            return f'{cid}/messages?{urlencode({"after": after})}', {
+                'fields': MESSAGE_FIELDS, 'limit': MESSAGE_PAGE_SIZE}
+        return cursor, None
 
     def run(self, full=False):
         self.db.set_meta('last_attempt', now())
@@ -78,15 +91,16 @@ class SyncEngine:
         # Resume only incomplete runs; every fresh scan starts at the newest page.
         cursor = previous.get('cursor') if previous and not previous['complete'] and not full else None
         incremental = bool(previous and previous['complete'] and not full)
-        path = cursor or f'{cid}/messages'
-        params = None if cursor else {'fields': MESSAGE_FIELDS, 'limit': MESSAGE_PAGE_SIZE}
+        resuming = bool(cursor)
+        path, params = self.message_request(cid, cursor)
         self.db.execute('UPDATE conversations SET complete=0,error=NULL WHERE id=?', (cid,))
         seen = set()
         while path:
             self.check_stop()
-            if path in seen:
+            request_key = cursor or f'{cid}:first-page'
+            if request_key in seen:
                 raise GraphError('Repeated message pagination cursor; run sync --full to reset')
-            seen.add(path)
+            seen.add(request_key)
             page = self.graph.get(path, params)
             messages = page.get('data', [])
             known_page = incremental and bool(messages) and all(
@@ -118,9 +132,10 @@ class SyncEngine:
                 con.execute('''UPDATE conversations SET cursor=?,complete=?,last_synced=?,
                     last_full_scan=CASE WHEN ? THEN ? ELSE last_full_scan END,error=NULL WHERE id=?''',
                     (next_cursor, int(not next_cursor), now(), int(exhausted), now(), cid))
-                if cursor and not next_cursor:
+                if resuming and not next_cursor:
                     # New messages may have arrived while we resumed older pages. Scan the head next cycle.
                     con.execute('UPDATE conversations SET updated_time=NULL WHERE id=?', (cid,))
             if messages and self.after_page:
                 self.after_page([message['id'] for message in messages])
-            path, params = next_cursor, None
+            cursor = next_cursor
+            path, params = self.message_request(cid, cursor) if cursor else (None, None)
