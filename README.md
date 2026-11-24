@@ -2,6 +2,10 @@
 
 Local Facebook **Page** inbox archive. Native Windows desktop app and command-line tools, SQLite, actual attachment files, resumable history import, signed webhooks, automatic catch-up and portable exports. No paid hosting or AI integration.
 
+## Continue this project safely
+
+For a new developer or AI assistant, start with [the current handoff](docs/AI-HANDOFF.md), then read the [architecture](docs/ARCHITECTURE.md), [operations runbook](docs/OPERATIONS.md), and repository [working agreement](AGENTS.md). These documents intentionally contain no credentials or customer data.
+
 ## Desktop app — everyday use
 
 Double-click **Open Inbox Archive.cmd** in this project folder. It opens the packaged executable when available and passes this directory as the app directory, so your existing `.env`, database and exports are reused. Otherwise it launches the Python source window. No terminals need to remain open.
